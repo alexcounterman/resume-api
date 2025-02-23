@@ -1,0 +1,134 @@
+import { useState, useEffect } from "react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Select } from "@/components/ui/select";
+import { Document, Packer, Paragraph, TextRun } from "docx";
+import axios from "axios";
+
+
+export default function ResumeQuestionnaire() {
+  const [formData, setFormData] = useState(() => {
+    const savedData = localStorage.getItem("resumeData");
+    return savedData ? JSON.parse(savedData) : {
+      name: "",
+      email: "",
+      phone: "",
+      address: "",
+      linkedin: "",
+      industry: "",
+      specialization: "",
+      jobs: [],
+      education: [],
+      skills: [],
+      certifications: "",
+      volunteering: "",
+      targetJob: "",
+    };
+  });
+
+  useEffect(() => {
+    localStorage.setItem("resumeData", JSON.stringify(formData));
+  }, [formData]);
+  
+  useEffect(() => {
+  const fetchResumes = async () => {
+    try {
+      const response = await axios.get("http://localhost:5000/api/resumes");
+      console.log("Fetched resumes:", response.data);
+    } catch (error) {
+      console.error("Error fetching resumes:", error);
+    }
+  };
+
+  fetchResumes();
+}, []);
+  const handleChange = (e) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  const handleSubmit = async (e) => {
+  e.preventDefault();
+
+  try {
+    const response = await axios.post("http://localhost:5000/api/resume", formData);
+    console.log("Resume saved:", response.data);
+    alert("Resume saved successfully!");
+  } catch (error) {
+    console.error("Error saving resume:", error);
+    alert("Failed to save resume.");
+  }
+
+  generateResume();
+};
+
+  const generateResume = () => {
+    const doc = new Document({
+      sections: [
+        {
+          properties: {},
+          children: [
+            new Paragraph({ text: formData.name, heading: "Heading1" }),
+            new Paragraph(`${formData.address}`),
+            new Paragraph(`${formData.phone} | ${formData.email}`),
+            new Paragraph(`${formData.linkedin}`),
+            new Paragraph("\n"),
+            new Paragraph({ text: "Objective", heading: "Heading2" }),
+            new Paragraph(formData.targetJob),
+            new Paragraph("\n"),
+            new Paragraph({ text: "Work Experience", heading: "Heading2" }),
+            ...formData.jobs.map(
+              (job) =>
+                new Paragraph(
+                  `${job.title} at ${job.company} (${job.start_date} - ${job.end_date})\n- ${job.summary}\n- Skills Gained: ${job.skills_gained}\n- Cost Savings: ${job.cost_savings}\n- Efficiency Improvements: ${job.efficiency_improvements}`
+                )
+            ),
+            new Paragraph("\n"),
+            new Paragraph({ text: "Education", heading: "Heading2" }),
+            ...formData.education.map(
+              (edu) =>
+                new Paragraph(
+                  `${edu.degree} in ${edu.program} at ${edu.school} (${edu.start_date} - ${edu.end_date})\n- GPA: ${edu.gpa}\n- Certifications: ${edu.certifications}`
+                )
+            ),
+            new Paragraph("\n"),
+            new Paragraph({ text: "Skills", heading: "Heading2" }),
+            new Paragraph(formData.skills.join(", ")),
+            new Paragraph("\n"),
+            new Paragraph({ text: "Volunteering & Certifications", heading: "Heading2" }),
+            new Paragraph(formData.volunteering),
+            new Paragraph(formData.certifications),
+          ],
+        },
+      ],
+    });
+
+    Packer.toBlob(doc).then((blob) => {
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = "resume.docx";
+      link.click();
+    });
+  };
+
+  return (
+    <div className="max-w-2xl mx-auto p-6">
+      <Card>
+        <CardContent className="p-4">
+          <h2 className="text-xl font-bold mb-4">Resume Questionnaire</h2>
+          <form onSubmit={handleSubmit}>
+            <Input name="name" placeholder="Full Name" value={formData.name} onChange={handleChange} className="mb-2" />
+            <Input name="email" placeholder="Email Address" value={formData.email} onChange={handleChange} className="mb-2" />
+            <Input name="phone" placeholder="Phone Number" value={formData.phone} onChange={handleChange} className="mb-2" />
+            <Input name="address" placeholder="Home Address or City, State" value={formData.address} onChange={handleChange} className="mb-2" />
+            <Input name="linkedin" placeholder="LinkedIn Profile" value={formData.linkedin} onChange={handleChange} className="mb-2" />
+            <Textarea name="targetJob" placeholder="What job are you applying for?" value={formData.targetJob} onChange={handleChange} className="mb-2" />
+            
+            <Button type="submit" className="mt-4 w-full">Generate Resume</Button>
+          </form>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
